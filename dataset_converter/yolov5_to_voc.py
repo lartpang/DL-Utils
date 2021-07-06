@@ -5,9 +5,6 @@ from PIL import Image
 
 
 def yolov5_to_voc(label_root, image_root, class_list, xml_root):
-    if not os.path.exists(xml_root):
-        os.makedirs(xml_root)
-
     for file in os.listdir(label_root):
         img_path = os.path.join(image_root, file.replace(".txt", ".jpg"))
         img_file = Image.open(img_path)
@@ -57,6 +54,12 @@ def get_args():
     parser.add_argument("--class-list", type=str, required=True)
     parser.add_argument("--xml-root", type=str, required=True)
     args = parser.parse_args()
+
+    assert os.path.isdir(args.label_root)
+    assert os.path.isdir(args.image_root)
+    assert os.path.isfile(args.class_list)
+    if not os.path.exists(args.xml_root):
+        os.makedirs(args.xml_root)
     return args
 
 
