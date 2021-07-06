@@ -5,6 +5,10 @@ from PIL import Image
 
 
 def yolov5_to_voc(label_root, image_root, class_list, xml_root):
+    """
+    修改自：
+    https://blog.csdn.net/qq_38109843/article/details/90783347
+    """
     for file in os.listdir(label_root):
         img_path = os.path.join(image_root, file.replace(".txt", ".jpg"))
         img_file = Image.open(img_path)
