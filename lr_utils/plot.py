@@ -1,15 +1,11 @@
 import copy
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torchvision.transforms.functional as tv_tf
 from scipy import signal
 from torchvision.utils import make_grid
-
-matplotlib.use("agg")
-plt.style.use("bmh")
 
 MARKERS = [
     ".",
@@ -105,8 +101,11 @@ def plot_lr_coef_curve(lr_lambda, num_steps, save_path=None):
 
 def plot_lr_curve_for_scheduler(scheduler, num_steps, save_path=None):
     scheduler = copy.deepcopy(scheduler)
-    fig, ax = plt.subplots()
 
+    plt.rc("xtick", labelsize="small")
+    plt.rc("ytick", labelsize="small")
+
+    fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(8, 4), dpi=600)
     # give plot a title
     ax.set_title("Learning Rate Curve")
     # make axis labels
@@ -116,40 +115,63 @@ def plot_lr_curve_for_scheduler(scheduler, num_steps, save_path=None):
     x_data = np.arange(num_steps)
     ys = []
     for _ in x_data:
-        scheduler.step()
         ys.append(max(scheduler.get_last_lr()))
+        scheduler.step()
     y_data = np.array(ys)
 
     # set lim
-    ax.set_xlim((-int(num_steps * 0.1), int(num_steps * 1.5)))
-    ax.set_ylim((y_data.min(), y_data.max()))
+    x_min, x_max = 0, num_steps - 1
+    dx = num_steps * 0.1
+    ax.set_xlim(x_min - dx, x_max + 2 * dx)
 
-    ax.plot(x_data, y_data, linewidth=2)
+    y_min, y_max = y_data.min(), y_data.max()
+    dy = (y_data.max() - y_data.min()) * 0.1
+    ax.set_ylim((y_min - dy, y_max + dy))
 
-    maximum_xs = signal.argrelextrema(y_data, comparator=np.greater_equal)[0]
-    maximum_ys = y_data[maximum_xs]
-    minimum_xs = signal.argrelextrema(y_data, comparator=np.less_equal)[0]
-    minimum_ys = y_data[minimum_xs]
+    marker_on = [0, -1]
+    key_point_xs = [0, num_steps - 1]
+    for idx in range(1, len(y_data) - 1):
+        prev_y = y_data[idx - 1]
+        curr_y = y_data[idx]
+        next_y = y_data[idx + 1]
+        if (
+            (curr_y > prev_y and curr_y >= next_y)
+            or (curr_y >= prev_y and curr_y > next_y)
+            or (curr_y <= prev_y and curr_y < next_y)
+            or (curr_y < prev_y and curr_y <= next_y)
+        ):
+            marker_on.append(idx)
+            key_point_xs.append(idx)
 
-    end_point_xs = np.array([x_data[0], x_data[-1]])
-    end_point_ys = np.array([y_data[0], y_data[-1]])
+    marker_on = sorted(set(marker_on))
+    key_point_xs = sorted(set(key_point_xs))
+    key_point_ys = []
+    for x in key_point_xs:
+        y = y_data[x]
+        key_point_ys.append(y)
+        ax.annotate(
+            text=f"({x:d},{y:.3e})",
+            xy=(x, y),
+            xytext=(-10, +10),
+            size="small",
+            textcoords="offset points",
+            arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=-0.3"),
+            rotation='vertical',
+        )
 
-    x_ticks = [0, num_steps]
-    for pt in zip(
-        np.concatenate((maximum_xs, minimum_xs, end_point_xs)),
-        np.concatenate((maximum_ys, minimum_ys, end_point_ys)),
-    ):
-        ax.text(pt[0], pt[1], s=f"x={pt[0]:d}")
-        ax.text(pt[0], pt[1] - 0.05, s=f"y={pt[1]:.3e}")
-        x_ticks.append(pt[0])
     # set ticks
-    ax.set_xticks(list(sorted(list(set(x_ticks)))))
-    # ax.set_yticks(np.linspace(0, 1, 11))
+    ax.set_xticks(key_point_xs)
+    # ax.set_yticks(key_point_ys)
 
-    if save_path:
-        fig.savefig(save_path, dpi=300)
-    else:
-        plt.show()
+    ax.plot(x_data, y_data, marker="o", markevery=marker_on)
+
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_visible(True)
+    ax.spines["bottom"].set_visible(True)
+
+    plt.tight_layout()
+    plt.savefig(save_path)
 
 
 def plot_lr_curve(log_path):
@@ -198,3 +220,4 @@ def plot_lr_curve(log_path):
 
     ax.legend()
     plt.show()
+    
